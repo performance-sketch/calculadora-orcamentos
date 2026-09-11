@@ -15,8 +15,6 @@
     --primary-dark:#243e9e;
     --good:#1a9e6b;
     --good-bg:#e6f7ef;
-    --warn:#c98a06;
-    --warn-bg:#fdf3e0;
     --bad:#d64545;
     --bad-bg:#fdeaea;
     --radius:14px;
@@ -124,10 +122,7 @@
     font-weight:700;
   }
   .pill-good{background:var(--good-bg);color:var(--good);}
-  .pill-warn{background:var(--warn-bg);color:var(--warn);}
   .pill-bad{background:var(--bad-bg);color:var(--bad);}
-  .bar{height:6px;border-radius:99px;background:#eef1f6;overflow:hidden;flex:1 1 100%;}
-  .bar > div{height:100%;border-radius:99px;}
   .del{
     background:transparent;
     border:none;
@@ -159,11 +154,8 @@
       <label>Nome
         <input type="text" id="fName" placeholder="Ex: Setembro 2026" required>
       </label>
-      <label>Valor do orçamento (R$)
-        <input type="number" id="fTotal" min="0" step="0.01" placeholder="0,00" required>
-      </label>
-      <label>Valor gasto (R$)
-        <input type="number" id="fSpent" min="0" step="0.01" placeholder="0,00" required>
+      <label>Saldo (R$)
+        <input type="number" id="fBalance" step="0.01" placeholder="0,00" required>
       </label>
       <label>Data de início
         <input type="date" id="fStart" required>
@@ -219,7 +211,7 @@ function computeBudget(b){
   const end = parseISO(b.end);
   const today = todayISO();
 
-  const remainingValue = b.total - b.spent;
+  const remainingValue = b.balance;
 
   let daysLeft;
   if (today < start){
@@ -231,14 +223,10 @@ function computeBudget(b){
   }
 
   const perDay = daysLeft > 0 ? remainingValue / daysLeft : null;
-  const pctSpent = b.total > 0 ? (b.spent / b.total) * 100 : 0;
 
-  let status = "good";
-  if (remainingValue < 0 || (daysLeft === 0 && remainingValue !== 0 && remainingValue < 0)) status = "bad";
-  else if (pctSpent >= 90) status = "bad";
-  else if (pctSpent >= 70) status = "warn";
+  const status = remainingValue < 0 ? "bad" : "good";
 
-  return { remainingValue, daysLeft, perDay, pctSpent, status };
+  return { remainingValue, daysLeft, perDay, status };
 }
 
 function render(){
@@ -251,18 +239,15 @@ function render(){
     listEl.innerHTML = '<div class="empty">Nenhum orçamento cadastrado ainda.</div>';
   }
 
-  let totalBudget = 0, totalSpent = 0, totalRemaining = 0, totalPerDay = 0;
+  let totalBalance = 0, totalPerDay = 0;
 
   list.forEach((b, idx) => {
     const c = computeBudget(b);
-    totalBudget += b.total;
-    totalSpent += b.spent;
-    totalRemaining += c.remainingValue;
+    totalBalance += c.remainingValue;
     if (c.perDay !== null) totalPerDay += c.perDay;
 
-    const pillClass = c.status === "good" ? "pill-good" : c.status === "warn" ? "pill-warn" : "pill-bad";
-    const barColor = c.status === "good" ? "var(--good)" : c.status === "warn" ? "var(--warn)" : "var(--bad)";
-    const pct = Math.min(100, Math.max(0, c.pctSpent));
+    const pillClass = c.status === "good" ? "pill-good" : "pill-bad";
+    const pillText = c.status === "good" ? "Saldo positivo" : "Saldo negativo";
 
     const el = document.createElement("div");
     el.className = "budget";
@@ -271,16 +256,13 @@ function render(){
         ${b.name}
         <small>${b.start.split("-").reverse().join("/")} → ${b.end.split("-").reverse().join("/")}</small>
       </div>
-      <div class="bstat"><div class="l">Orçamento</div><div class="v">${fmtBRL(b.total)}</div></div>
-      <div class="bstat"><div class="l">Gasto</div><div class="v">${fmtBRL(b.spent)}</div></div>
-      <div class="bstat"><div class="l">Restante</div><div class="v">${fmtBRL(c.remainingValue)}</div></div>
+      <div class="bstat"><div class="l">Saldo</div><div class="v">${fmtBRL(c.remainingValue)}</div></div>
       <div class="bstat"><div class="l">Dias restantes</div><div class="v">${c.daysLeft}</div></div>
       <div class="bstat">
         <div class="l">Por dia</div>
         <div class="v">${c.perDay !== null ? fmtBRL(c.perDay) : "—"}</div>
       </div>
-      <div class="bstat"><span class="pill ${pillClass}">${pct.toFixed(0)}% usado</span></div>
-      <div class="bar"><div style="width:${pct}%;background:${barColor};"></div></div>
+      <div class="bstat"><span class="pill ${pillClass}">${pillText}</span></div>
       <button class="del" data-idx="${idx}">Remover</button>
     `;
     listEl.appendChild(el);
@@ -297,9 +279,7 @@ function render(){
   });
 
   summaryEl.innerHTML = `
-    <div class="stat"><div class="label">Orçamento total</div><div class="value">${fmtBRL(totalBudget)}</div></div>
-    <div class="stat"><div class="label">Total gasto</div><div class="value">${fmtBRL(totalSpent)}</div></div>
-    <div class="stat"><div class="label">Total restante</div><div class="value">${fmtBRL(totalRemaining)}</div></div>
+    <div class="stat"><div class="label">Saldo total</div><div class="value">${fmtBRL(totalBalance)}</div></div>
     <div class="stat"><div class="label">Disponível/dia (soma)</div><div class="value">${fmtBRL(totalPerDay)}</div></div>
   `;
 }
@@ -307,19 +287,18 @@ function render(){
 document.getElementById("budgetForm").addEventListener("submit", (e) => {
   e.preventDefault();
   const name = document.getElementById("fName").value.trim();
-  const total = parseFloat(document.getElementById("fTotal").value);
-  const spent = parseFloat(document.getElementById("fSpent").value);
+  const balance = parseFloat(document.getElementById("fBalance").value);
   const start = document.getElementById("fStart").value;
   const end = document.getElementById("fEnd").value;
 
-  if (!name || isNaN(total) || isNaN(spent) || !start || !end) return;
+  if (!name || isNaN(balance) || !start || !end) return;
   if (parseISO(end) < parseISO(start)){
     alert("A data de fim precisa ser depois da data de início.");
     return;
   }
 
   const list = loadBudgets();
-  list.push({ name, total, spent, start, end });
+  list.push({ name, balance, start, end });
   saveBudgets(list);
   e.target.reset();
   render();
