@@ -155,7 +155,7 @@
         <input type="text" id="fName" placeholder="Ex: Setembro 2026" required>
       </label>
       <label>Saldo (R$)
-        <input type="number" id="fBalance" step="0.01" placeholder="0,00" required>
+        <input type="text" inputmode="decimal" id="fBalance" placeholder="9.204,03" required>
       </label>
       <label>Data de início
         <input type="date" id="fStart" required>
@@ -192,6 +192,12 @@ function saveBudgets(list){
 
 function fmtBRL(n){
   return (n || 0).toLocaleString("pt-BR", {style:"currency", currency:"BRL"});
+}
+
+function parseBRL(s){
+  if (typeof s !== "string") return NaN;
+  const clean = s.trim().replace(/\./g, "").replace(",", ".");
+  return parseFloat(clean);
 }
 
 function todayISO(){
@@ -287,7 +293,7 @@ function render(){
 document.getElementById("budgetForm").addEventListener("submit", (e) => {
   e.preventDefault();
   const name = document.getElementById("fName").value.trim();
-  const balance = parseFloat(document.getElementById("fBalance").value);
+  const balance = parseBRL(document.getElementById("fBalance").value);
   const start = document.getElementById("fStart").value;
   const end = document.getElementById("fEnd").value;
 
